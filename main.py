@@ -12,7 +12,7 @@ class User:
 
     def save_to_database(self, name, age, email):
         # Validate input data
-        if not self.validate_input(name, age, email):
+        if not self._validate_input(name, age, email):
             print("Invalid input data. Please provide valid values.")
             return
 
@@ -25,7 +25,7 @@ class User:
         except Error as e:
             print(f"An error occurred while saving user to the database: {e}")
 
-    def validate_input(self, name, age, email):
+    def _validate_input(self, name, age, email):
         # Validate name
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Name must be a non-empty string.")
@@ -64,7 +64,7 @@ class User:
 
     def update_email(self, name, new_email):
         # Validate input data
-        if not self.validate_input(name, 0, new_email):
+        if not self._validate_input(name, 0, new_email):
             print("Invalid input data. Please provide valid values.")
             return
 
@@ -106,6 +106,44 @@ class User:
         except Error as e:
             print(f"An error occurred while calculating average age: {e}")
             return 0
+
+
+class Admin(User):
+    def __init__(self, conn):
+        super().__init__(conn)
+
+    def save_to_database(self, name, age, email, role):
+        if not self._validate_input(name, age, email):
+            print("Invalid input data. Please provide valid values.")
+            return
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute('CREATE TABLE IF NOT EXISTS admins (name TEXT, age INTEGER, email TEXT, role TEXT)')
+                cursor.execute('INSERT INTO admins VALUES (%s, %s, %s, %s)', (name, age, email, role))
+                self.conn.commit()
+        except Error as e:
+            print(f"An error occurred while saving admin to the database: {e}")
+
+    def retrieve_from_database(self):
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute('SELECT * FROM admins')
+                admins = cursor.fetchall()
+                return admins
+        except Error as e:
+            print(f"An error occurred while retrieving admins from the database: {e}")
+            return []
+
+    def search_by_name(self, name):
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute('SELECT * FROM admins WHERE LOWER(name) LIKE %s', (f'%{name.lower()}%',))
+                admins = cursor.fetchall()
+                return admins
+        except Error as e:
+            print(f"An error occurred while searching admins by name: {e}")
+            return []
 
 
 def main():
@@ -154,6 +192,20 @@ print(user.calculate_user_count())
 
 # Print the average age of users
 print(user.calculate_average_age())
+
+# Create an instance of the Admin class with the same connection
+admin = Admin(conn)
+admin.save_to_database('Admin User', 30, 'admin@example.com', 'superuser')
+
+# Use the overridden search_by_name() method of the Admin class
+search_results = admin.search_by_name('Admin')
+
+if search_results:
+    print("\nSearch Results:")
+    for u in search_results:
+        print(f"Name: {u[0]}, Age: {u[1]}, Email: {u[2]}, Role: {u[3]}")
+else:
+    print("\nNo users found.")
 
 # Close the database connection
 conn.close()
